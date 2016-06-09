@@ -5,6 +5,10 @@
 #col [63] is where genotypes begin
 #people = 2504
 
+import time
+from MultiProcessing import MultiProcessing, conventional
+import datetime
+
     
 def VARrecode2(filestart):
     filename = filestart + '.txt'
@@ -92,15 +96,92 @@ def VARrecode2(filestart):
                     outfile.write('\n')
     outfile.close()
 
+def var_recode_2(line):
+    line = line[:-1]
+    output_line = ""
+    if line[:4] == 'Chr\t':
+        words = line.split('\t')
+        for i in range(0, 63):
+            output_line += words[i]
+            output_line += '\t'
+        # AC (allele count), AMax (maximum allele count), and AF (allele frequency) are moved to columns before the genotypes.
+        output_line += 'AC'
+        output_line += '\t'
+        output_line += 'AMax'
+        output_line += '\t'
+        output_line += 'AF'
+        output_line += '\t'
+        for i in range(63, 2566):
+            output_line += words[i]
+            output_line += '\t'
+        for i in range(2566, 2567):
+            output_line += words[i]
+            output_line += '\n'
+    else:
+        words = line.split('\t')
+        AC = words[-3]
+        AMax = words[-2]
+        AF = words[-1]
+        for i in range(0, 63):
+            output_line += words[i]
+            output_line += '\t'
+        output_line += AC
+        output_line += '\t'
+        output_line += AMax
+        output_line += '\t'
+        output_line += AF
+        output_line += '\t'
+        if float(AF) <= 0.5:
+            for i in range(63, 2566):
+                if words[i] == 'NA':
+                    output_line += 'NA'
+                    output_line += '\t'
+                else:
+                    output_line += words[i]
+                    output_line += '\t'
+            for i in range(2566, 2567):
+                if words[i] == 'NA':
+                    output_line += 'NA'
+                    output_line += '\n'
+                else:
+                    output_line += words[i]
+                    output_line += '\n'
+        else:
+            # if AF > 0.5, then alleles should be recoded in the opposite manner
+            for i in range(63, 2566):
+                if words[i] == 'NA':
+                    output_line += 'NA'
+                    output_line += '\t'
+                elif words[i] == '0':
+                    output_line += '2'
+                    output_line += '\t'
+                elif words[i] == '2':
+                    output_line += '0'
+                    output_line += '\t'
+                else:
+                    output_line += words[i]
+                    output_line += '\t'
+            for i in range(2566, 2567):
+                if words[i] == 'NA':
+                    output_line += words[i]
+                    output_line += '\n'
+                elif words[i] == '0':
+                    output_line += '2'
+                    output_line += '\n'
+                elif words[i] == '2':
+                    output_line += '0'
+                    output_line += '\n'
+                else:
+                    output_line += words[i]
+                    output_line += '\n'
+    return output_line
 
 
-
-
-
-VARrecode2('1kg_chr22_coding_clean_recode1_ACAF')
-
-
-
+if __name__ == '__main__':
+    start_time = time.time()
+    MultiProcessing(input_file_path='1kg_chr22_coding_clean_recode1_ACAF.txt',
+                    output_file_path='fillan.txt', f=var_recode_2)
+    print "Time to execute: %s" % datetime.timedelta(seconds=time.time() - start_time)
 
 
 
