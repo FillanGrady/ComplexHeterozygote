@@ -2,3 +2,6 @@
 *.vcf
 .idea/*
 *.swp
+~.lock*
+*.pyc
+*.csv

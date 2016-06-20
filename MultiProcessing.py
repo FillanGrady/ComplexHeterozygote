@@ -30,7 +30,7 @@ class MultiProcessing:
 
         self.infile.close()
         self.outfile.close()
-        print "Time to execute: %s" % datetime.timedelta(seconds=time.time() - start_time)
+        print("Time to execute: %s" % datetime.timedelta(seconds=time.time() - start_time))
 
     def input_csv(self):
         for i, line in enumerate(self.infile):
@@ -64,3 +64,21 @@ def conventional(input_file_path, output_file_path, f):
         with open(output_file_path, 'w') as outfile:
             for line in infile:
                 outfile.write(f(line))
+
+
+class MultiProcessingList:
+    def __init__(self, input, f, extra_args):
+        self.num_cores = multiprocessing.cpu_count()
+        self.extra_args = extra_args
+        self.f = f
+        self.input = input
+        self.output = []
+
+        self.ps = [multiprocessing.Process(target=self.execute, args=()) for i in range(self.num_cores)]
+        for p in self.ps:
+            p.start()
+            p.join()
+
+    def execute(self):
+        for item in self.input:
+            self.output.append(self.f(item, self.extra_args))
