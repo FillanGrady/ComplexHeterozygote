@@ -2,6 +2,7 @@ import sys
 from Patients import Patients
 from Enumerations import Genotypes
 from Mutations import Mutation, Header, CodingGeneMutation, CodingGeneMutationHeader
+import zipfile
 
 
 class Data:
@@ -27,6 +28,7 @@ class Data:
         """
         self.annotated_file_path = annotated_file_path
         self.output_file_path = output_file_path
+        self.subject_info_file_path = subject_info_file_path
         if valid_genotypes is None:
             self.valid_genotypes = [Genotypes.CompoundHeterozygotes]
         else:
@@ -44,31 +46,45 @@ class Data:
         self.ch_counts = {}
         self.ch_count_header = None
         self.seen_ids = set()
-        with open(self.annotated_file_path, 'r') as input_file:
-            with open(self.output_file_path, 'w') as output_file:
-                self.header = Header(input_file.readline().strip())
-                self.ch_count_header = CodingGeneMutationHeader(self.header, Patients(subject_info_file_path))
-                output_file.write(repr(self.header))
-                for line in input_file:
-                    self.mutation = Mutation(self.header, line.strip(), self.abbreviated_titles)
-                    if self.mutation["ID"] in self.seen_ids:
-                        continue
-                    else:
-                        self.seen_ids.add(self.mutation["ID"])
-                    self.mutation.add_frequencies()
-                    self.mutation.split_info()
-                    if not self.mutation.rare_variant():
-                        continue
-                    self.get_coding_genes()
-                    for mutation in self.mutations:
-                        self.parse_new_mutation(mutation)
-                        self.remove_var_patients(mutation)
-                        if len(mutation["PATIENTS"]) > 0:
-                            output_file.write(repr(mutation))
+        with open(self.output_file_path, 'w') as self.output_file:
+            if zipfile.is_zipfile(self.annotated_file_path):
+                with zipfile.ZipFile(self.annotated_file_path, mode='r') as zf:
+                    with zf.open(self.annotated_file_path[:-4], mode='r') as f:
+                        self.parse_file_object(f)
+            else:
+                with open(self.annotated_file_path, 'r') as f:
+                    self.parse_file_object(f)
         for coding_gene, ch_count in self.ch_counts.items():
             for patient in ch_count.header.patient_columns:
                 ch_count["CHCOUNT"] += int(ch_count[patient].value)
         self.save_count_file(count_file_path)
+
+    def parse_file_object(self, file_object):
+        encoding = "utf-8"
+        first_line = file_object.readline()
+        if isinstance(first_line, bytes):
+            first_line = first_line.decode(encoding)
+        self.header = Header(first_line.strip())
+        self.ch_count_header = CodingGeneMutationHeader(self.header, Patients(self.subject_info_file_path))
+        self.output_file.write(repr(self.header))
+        for line in file_object:
+            if isinstance(line, bytes):
+                line = line.decode(encoding)
+            self.mutation = Mutation(self.header, line.strip(), self.abbreviated_titles)
+            if self.mutation["ID"] in self.seen_ids:
+                continue
+            else:
+                self.seen_ids.add(self.mutation["ID"])
+            self.mutation.add_frequencies()
+            self.mutation.split_info()
+            if not self.mutation.rare_variant():
+                continue
+            self.get_coding_genes()
+            for mutation in self.mutations:
+                self.parse_new_mutation(mutation)
+                self.remove_var_patients(mutation)
+                if len(mutation["PATIENTS"]) > 0:
+                    self.output_file.write(repr(mutation))
 
     def get_coding_genes(self):
         """
