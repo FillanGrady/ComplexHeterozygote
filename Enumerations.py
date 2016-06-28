@@ -40,7 +40,7 @@ class Genotypes(Enum):
     OneMutation = 4
 
 
-class GeneEffects(Enum):
+class MutationEffects(Enum):
     """
     What genes are affected by a mutation
     """
@@ -58,31 +58,68 @@ class GeneEffects(Enum):
     UTR_5_PRIME = 12
     UTR_3_DELETED = 13
     UTR_5_DELETED = 14
-    START_GAINED = 15
-    START_LOST = 16
-    STOP_GAINED = 17
-    STOP_LOST = 18
-    CODON_DELETION = 19
-    CODON_INSERTION = 20
-    CODON_CHANGE_PLUS_CODON_DELETION = 21
-    CODON_CHANGE_PLUS_CODON_INSERTION = 22
-    FRAME_SHIFT = 23
-    TRANSCRIPT = 24
-    SPLICE_SITE_DONOR = 25
-    SPLICE_SITE_ACCEPTOR = 26
-    INTERGENIC = 27
-    INTRAGENIC = 28
+    UTR_3_PREMATURE_START = 15
+    UTR_5_PREMATURE_START = 16
+    START_GAINED = 17
+    START_LOST = 18
+    STOP_GAINED = 19
+    STOP_LOST = 20
+    CODON_DELETION = 21
+    CODON_INSERTION = 22
+    CODON_CHANGE_PLUS_CODON_DELETION = 23
+    CODON_CHANGE_PLUS_CODON_INSERTION = 24
+    FRAME_SHIFT = 25
+    TRANSCRIPT = 26
+    SPLICE_SITE_DONOR = 27
+    SPLICE_SITE_ACCEPTOR = 28
+    SPLICE_SITE_VARIANT = 29
+    INTERGENIC = 30
+    INTRAGENIC = 31
+    NON_CODING = 32
+    MISSENSE = 33
+    DISRUPTIVE_INFRAME_DELETION = 34
+    DISRUPTIVE_INFRAME_INSERTION = 35
+
+    @staticmethod
+    def str_lookup():
+        """
+        Each annotation software labels the effects of the mutations slightly differently
+        This function provides a user-accessible class to allow custom lookups for each mutation_effect
+        This returns a dictionary, where the keys are the string representations of a mutation_effect,
+        and the values are the mutation_effect
+
+        Ex: d["INTERGENIC_REGION"] = MutationEffects.INTERGENIC
+        """
+        d = {}
+        for name, member in MutationEffects.__members__.items():
+            d[str(member)] = member
+            d[str(member) + "_VARIANT"] = member  # Frequently, labeled as "SYNONYMOUS_VARIANT" instead of "SYNONYMOUS"
+        d["INTERGENIC_REGION"] = MutationEffects.INTERGENIC
+        d["DOWNSTREAM_GENE_VARIANT"] = MutationEffects.DOWNSTREAM
+        d["UPSTREAM_GENE_VARIANT"] = MutationEffects.UPSTREAM
+        d["NON_CODING_EXON_VARIANT"] = MutationEffects.NON_CODING
+        d["SPLICE_DONOR_VARIANT"] = MutationEffects.SPLICE_SITE_DONOR
+        d["SPLICE_ACCEPTOR_VARIANT"] = MutationEffects.SPLICE_SITE_ACCEPTOR
+        d["SPLICE_REGION_VARIANT"] = MutationEffects.SPLICE_SITE_VARIANT
+        d["3_PRIME_UTR_VARIANT"] = MutationEffects.UTR_3_PRIME
+        d["5_PRIME_UTR_VARIANT"] = MutationEffects.UTR_5_PRIME
+        d["SYNONYMOUS_VARIANT"] = MutationEffects.SYNONYMOUS_CODING
+        d["FRAME_SHIFT_VARIANT"] = MutationEffects.FRAME_SHIFT
+        d["FRAMESHIFT_VARIANT"] = MutationEffects.FRAME_SHIFT
+        d["5_PRIME_UTR_PREMATURE_START_CODON_GAIN_VARIANT"] = MutationEffects.UTR_5_PREMATURE_START
+        d["3_PRIME_UTR_PREMATURE_START_CODON_GAIN_VARIANT"] = MutationEffects.UTR_3_PREMATURE_START
+        return d
 
     @staticmethod
     def all():
-        return [member for name, member in GeneEffects.__members__.items()]
+        return [member for name, member in MutationEffects.__members__.items()]
 
     @staticmethod
     def default():
-        return [GeneEffects.CODON_CHANGE_PLUS_CODON_DELETION, GeneEffects.CODON_CHANGE_PLUS_CODON_INSERTION,
-                GeneEffects.CODON_DELETION, GeneEffects.CODON_INSERTION, GeneEffects.EXON_DELETED,
-                GeneEffects.FRAME_SHIFT, GeneEffects.NON_SYNONYMOUS_CODING, GeneEffects.SPLICE_SITE_ACCEPTOR,
-                GeneEffects.SPLICE_SITE_DONOR, GeneEffects.START_LOST, GeneEffects.STOP_GAINED, GeneEffects.START_LOST]
+        return [MutationEffects.CODON_CHANGE_PLUS_CODON_DELETION, MutationEffects.CODON_CHANGE_PLUS_CODON_INSERTION,
+                MutationEffects.CODON_DELETION, MutationEffects.CODON_INSERTION, MutationEffects.EXON_DELETED,
+                MutationEffects.FRAME_SHIFT, MutationEffects.NON_SYNONYMOUS_CODING, MutationEffects.SPLICE_SITE_ACCEPTOR,
+                MutationEffects.SPLICE_SITE_DONOR, MutationEffects.START_LOST, MutationEffects.STOP_GAINED, MutationEffects.START_LOST]
 
     def __str__(self):
         return self.name

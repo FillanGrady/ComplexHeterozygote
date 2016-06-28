@@ -1,6 +1,7 @@
-from Enumerations import Ancestry, GeneEffects, Genotypes
+from Enumerations import Ancestry, MutationEffects, Genotypes
 import os
 import re
+from collections import defaultdict
 
 
 class Header:
@@ -88,30 +89,52 @@ class Mutation:
         """
         This function computes some simple statistics on each mutation.
         Computes the number of mutated alleles, the number of wild-type alleles, and the frequency of mutations
+
+        Sometimes the reference and alternate allele are flipped.  To counteract this, if more than 50% of the
+        alleles are alternate alleles, this function will modify the data so that the alternate allele
+        is the reference allele
+
+        Some patients have more than one alternate allele.
+        If so, the allele count will be the frequency of all alternate alleles
         """
-        self['AC'] = 0
+        allele_counts = defaultdict(int)
         for patient in self.header.patient_columns:
-            if self[patient][0] == '1':
-                self['AC'] += 1
-            if self[patient][2] == '1':
-                self['AC'] += 1
+            allele_counts[self[patient][0]] += 1
+            allele_counts[self[patient][-1]] += 1
         self['AMax'] = 2 * len(self.header.patient_columns)
-        self['AF'] = float(self['AC']) / float(self['AMax'])
-        if self['AF'] > .5:  # Var and Ref need to be switched
-            self['REF'], self['ALT'] = self['ALT'], self['REF']
-            self['AC'] = self['AMax'] - self['AC']
-            self['AF'] = 1 - self['AF']
+        self['AC'] = self['AMax'] - allele_counts[0]
+
+        reference_allele_number = -1  # This code chunk identifies which allele has the greatest frequency
+        reference_count = -1
+        for allele_number, allele_count in allele_counts.items():
+            if allele_count > reference_count:
+                reference_allele_number = int(allele_number)
+                reference_count = allele_count
+
+        if reference_allele_number != 0:  # If the reference allele is not the most common
+            alternate_alleles = self["ALT"].split(",")
+            self["REF"], alternate_alleles[reference_allele_number - 1] = \
+                alternate_alleles[reference_allele_number - 1], self["REF"]
+            self["ALT"] = ",".join(alternate_alleles)
+            self['AC'] = self['AMax'] - allele_counts[reference_allele_number]
+            reference_allele_number = str(reference_allele_number)
             for patient in self.header.patient_columns:
-                if self[patient] == '0|0':
-                    self[patient] = '1|1'
-                elif self[patient] == '1|0':
-                    self[patient] = '0|1'
-                elif self[patient] == '0|1':
-                    self[patient] = '1|0'
-                elif self[patient] == '1|1':
-                    self[patient] = '0|0'
+                new_genotype = ""
+                if self[patient][0] == '0':
+                    new_genotype += reference_allele_number
+                elif self[patient][0] == reference_allele_number:
+                    new_genotype += "0"
                 else:
-                    raise ValueError(self[patient])
+                    new_genotype += self[patient][0]
+                new_genotype += "|"
+                if self[patient][0] == '0':
+                    new_genotype += reference_allele_number
+                elif self[patient][0] == reference_allele_number:
+                    new_genotype += "0"
+                else:
+                    new_genotype += self[patient][0]
+                self[patient] = new_genotype
+        self['AF'] = float(self['AC']) / float(self['AMax'])
 
     def split_info(self):
         """
@@ -121,6 +144,8 @@ class Mutation:
         Column "EUR_AF" = 0.3
         Column "EAS_AF" = 0.1
         ...
+        Returns whether it created the columns "ANN" or "EFF",
+        which are used to identify the effects of the mutation on the gene
         """
         info = self["INFO"].split(";")
         del self.data["INFO"]
@@ -128,6 +153,11 @@ class Mutation:
             datum = datum.strip('|').split("=")
             if len(datum) == 2:
                 self[datum[0]] = datum[1]
+        if "EFF" not in self and "ANN" not in self:
+            print("Couldn't determine effect of mutation for %s" % self["ID"])
+            return False
+        else:
+            return True
 
     def rare_variant(self, threshold=0.02, populations_to_consider=Ancestry.all()):
         """
@@ -139,34 +169,90 @@ class Mutation:
         """
         try:
             if Ancestry.Overall in populations_to_consider:
+                if 'AF' not in self:
+                    return False
                 if threshold < float(self['AF']) < (1 - threshold):
                     return False
             if Ancestry.African in populations_to_consider:
+                if 'AFR_AF' not in self:
+                    return False
                 if threshold < float(self['AFR_AF']) < (1 - threshold):
                     return False
             if Ancestry.American in populations_to_consider:
+                if 'AMR_AF' not in self:
+                    return False
                 if threshold < float(self['AMR_AF']) < (1 - threshold):
                     return False
             if Ancestry.EastAsian in populations_to_consider:
+                if 'EAS_AF' not in self:
+                    return False
                 if threshold < float(self['EAS_AF']) < (1 - threshold):
                     return False
             if Ancestry.European in populations_to_consider:
+                if 'EUR_AF' not in self:
+                    return False
                 if threshold < float(self['EUR_AF']) < (1 - threshold):
                     return False
             if Ancestry.SouthAsian in populations_to_consider:
+                if 'SAS_AF' not in self:
+                    return False
                 if threshold < float(self['SAS_AF']) < (1 - threshold):
                     return False
-        except ValueError:
+        except ValueError:  # If one of the allele frequencies cannot be cast to a float
             return False
         return True
 
-    def get_coding_genes(self, affected_genes=GeneEffects.default()):
-        effects = self["EFF"].split(",")
+    def get_coding_genes(self, mutation_effects=None, mutation_effect_lookup=None):
+        """
+        Each mutation has a column, labeled "EFF" or "ANN" detailing how this mutation will effect the genes
+        This column contains a lot of information, but we only care about the affected gene and how it is affected
+        If the column is called "EFF", it was created by an old version of the annotation software, and it'll look like:
+            ______              __________
+            INTRON(MODIFIER|||||AP000525.8|processed_transcript|NON_CODING|ENST00000413768|7)
+            gene effect         gene
+        If the column is called "ANN", it was annotated by a newer software, and it'll look like:
+              __________________          _______________
+            A|SYNONYMOUS_VARIANT|LOW|TPTE|ENSG00000166157|TRANSCRIPT|ENST00000342420|PROTEIN_CODING|16/22|C.939C>T|P.ALA313ALA|1269/2036|939/1542|313/513||
+              gene effect                 gene
+        This function only returns coding_genes that will by changed by the mutation
+        As such, the user can specify if they're looking for mutations that are changing Exons, Introns, Synonymous...
+            (Further options in Enumerations.MutationEffects)
+        This option, to determine which mutation effects are acceptable, is passed in as mutation_effects
+
+        This function also allows users to specify a mutation_effect_lookup, to get around the problem that sometimes
+        the same mutation effect is called different names.
+        For example, sometimes Downstream is called "DOWNSTREAM" and sometimes "DOWNSTREAM_GENE_VARIANT"
+        Pass in a dictionary with two entries;
+            d["DOWNSTREAM"] = MutationEffects.DOWNSTREAM
+            d["DOWNSTREAM_GENE_VARIANT"] = MutationEffects.DOWNSTREAM
+        If no dictionary is passed in, it will default to MutationEffects.str_lookup()
+        """
+        if mutation_effects is None:
+            mutation_effects = MutationEffects.default()
+        if mutation_effect_lookup is None:
+            mutation_effect_lookup = MutationEffects.str_lookup()
         coding_genes = set()
-        for effect in effects:
-            summary = effect[:effect.index("(")]
-            if summary in map(str, affected_genes):
-                coding_genes.add(effect.split('|')[5])
+        if "EFF" in self:
+            effects = self["EFF"].split(",")
+            for effect in effects:
+                effect = effect.upper()
+                gene_effect = effect.split("(")[0]
+                gene = effect.split("|")[5]
+                for each_effect in gene_effect.split("&"):
+                    if mutation_effect_lookup[each_effect] in mutation_effects:
+                        coding_genes.add(gene)
+        elif "ANN" in self:
+            effects = self["ANN"].split(",")
+            for effect in effects:
+                effect = effect.upper().split("|")
+                gene_effect = effect[1]
+                gene = effect[3]
+                for each_effect in gene_effect.split("&"):
+                    if each_effect in mutation_effect_lookup:
+                        if mutation_effect_lookup[each_effect] in mutation_effects:
+                            coding_genes.add(gene)
+                    else:
+                        print(effect)
         return coding_genes
 
     def __repr__(self):
@@ -207,6 +293,9 @@ class Mutation:
 
     def __setitem__(self, key, value):
         self.data[key] = value
+
+    def __contains__(self, item):
+        return item in self.data
 
 
 class PatientGenotype:
@@ -299,4 +388,4 @@ class CodingGeneMutationHeader(Header):
         super_pop_header = '\t'.join([self.my_patients[patient].super_population if patient in self.my_patients else ""
                                       for patient in self.output_titles])
         return patient_header + os.linesep + gender_header + os.linesep + population_header + os.linesep + \
-            super_pop_header
+            super_pop_header + os.linesep
