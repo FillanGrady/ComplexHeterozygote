@@ -1,8 +1,10 @@
 import sys
 from Patients import Patients
-from Enumerations import Genotypes
+from Enumerations import Genotypes, MutationEffects, Ancestry
 from Mutations import Mutation, Header, CodingGeneMutation, CodingGeneMutationHeader
 import zipfile
+import os
+import time
 
 
 class Data:
@@ -15,7 +17,7 @@ class Data:
     It acts as a pipe for mutations, collecting their effects on coding_genes
     """
     def __init__(self, annotated_file_path, output_file_path, count_file_path, subject_info_file_path,
-                 valid_genotypes=None):
+                 valid_genotypes=None, valid_mutation_effects=None, valid_ancestries=None):
         self.abbreviated_titles = {}
         """
         Abbreviated titles is a dictionary that is shallow copied into all the instances of Mutation
@@ -29,10 +31,20 @@ class Data:
         self.annotated_file_path = annotated_file_path
         self.output_file_path = output_file_path
         self.subject_info_file_path = subject_info_file_path
+
         if valid_genotypes is None:
             self.valid_genotypes = [Genotypes.CompoundHeterozygotes]
         else:
             self.valid_genotypes = valid_genotypes
+        if valid_mutation_effects is None:
+            self.valid_mutation_effects = MutationEffects.default()
+        else:
+            self.valid_mutation_effects = valid_mutation_effects
+        if valid_ancestries is None:
+            self.valid_ancestries = Ancestry.all()
+        else:
+            self.valid_ancestries = valid_ancestries
+
         self.mutation = None
         self.mutations = []
         self.header = None
@@ -46,10 +58,12 @@ class Data:
         self.ch_counts = {}
         self.ch_count_header = None
         self.seen_ids = set()
+        self.output_file = None
+        self.mutation_effect_lookup = MutationEffects.str_lookup()
         with open(self.output_file_path, 'w') as self.output_file:
             if zipfile.is_zipfile(self.annotated_file_path):
                 with zipfile.ZipFile(self.annotated_file_path, mode='r') as zf:
-                    with zf.open(self.annotated_file_path[:-4], mode='r') as f:
+                    with zf.open(os.path.basename(self.annotated_file_path)[:-4], mode='r') as f:
                         self.parse_file_object(f)
             else:
                 with open(self.annotated_file_path, 'r') as f:
@@ -60,24 +74,33 @@ class Data:
         self.save_count_file(count_file_path)
 
     def parse_file_object(self, file_object):
-        encoding = "utf-8"
-        first_line = file_object.readline()
-        if isinstance(first_line, bytes):
-            first_line = first_line.decode(encoding)
+        """
+        Main loop of program
+        """
+        first_line = decode(file_object.readline())
+        while first_line[:2] == "##":  # Gets rid of metadata header
+            first_line = decode(file_object.readline())
         self.header = Header(first_line.strip())
         self.ch_count_header = CodingGeneMutationHeader(self.header, Patients(self.subject_info_file_path))
         self.output_file.write(repr(self.header))
+        start = time.time()
+        count = 0
         for line in file_object:
-            if isinstance(line, bytes):
-                line = line.decode(encoding)
+            line = decode(line)
+            count += 1
+            if count % 100 == 0:
+                print("Line number: %s\nTime: %s" % (count, time.time() - start))
+                start = time.time()
             self.mutation = Mutation(self.header, line.strip(), self.abbreviated_titles)
-            if self.mutation["ID"] in self.seen_ids:
-                continue
-            else:
-                self.seen_ids.add(self.mutation["ID"])
+            for id in self.mutation["ID"].split(","):
+                if id in self.seen_ids:
+                    continue
+                else:
+                    self.seen_ids.add(id)
             self.mutation.add_frequencies()
-            self.mutation.split_info()
-            if not self.mutation.rare_variant():
+            if not self.mutation.split_info():  # If the information on the mutation type (intron, exon...) is missing
+                continue
+            if not self.mutation.rare_variant(populations_to_consider=self.valid_ancestries):
                 continue
             self.get_coding_genes()
             for mutation in self.mutations:
@@ -94,7 +117,8 @@ class Data:
         It the creates copies of self.mutation, each one with one of the coding genes
         """
         self.mutations = []
-        coding_genes = self.mutation.get_coding_genes()  # Sets remove duplicates from list
+        coding_genes = self.mutation.get_coding_genes(mutation_effects=self.valid_mutation_effects,
+                                                      mutation_effect_lookup=self.mutation_effect_lookup)
         for coding_gene in coding_genes:
             new_mutation = Mutation(self.mutation)
             new_mutation["CODING_GENE"] = coding_gene
@@ -153,8 +177,51 @@ class Data:
             for coding_gene, ch_count in self.ch_counts.items():
                 f.write(repr(ch_count))
 
+
+def decode(s):
+    encoding = "utf-8"
+    if isinstance(s, bytes):
+        return s.decode(encoding)
+    else:
+        return s
+
+
+def read_parameter_file(parameter_file_path):
+    valid_mutation_effects = []
+    valid_ancestries = []
+    valid_genotypes = []
+    with open(parameter_file_path, 'r') as f:
+        state = None
+        enumeration = None
+        valid_list = None
+        for line in f:
+            line = line.strip().lower()
+            if line in ["mutation_effects", "ancestry", "genotypes"]:
+                state = line
+            else:
+                if state is None:
+                    raise IOError("Needs header specifying Mutation_Effects, Ancestry, or Genotypes")
+                else:
+                    if line.count(" ") == 2:
+                        name = line.split(" ")[0]
+                        if state == "mutation_effects":
+                            enumeration = MutationEffects
+                            valid_list = valid_mutation_effects
+                        elif state == "ancestry":
+                            enumeration = Ancestry
+                            valid_list = valid_ancestries
+                        elif state == "genotypes":
+                            enumeration = Genotypes
+                            valid_list = valid_genotypes
+                        for e_name, e_member in enumeration.__members__.items():
+                            if e_name == name:
+                                valid_list.append(e_name)
+    return valid_mutation_effects, valid_ancestries, valid_genotypes
+
 if __name__ == '__main__':
-    if len(sys.argv) != 5:
-        raise IOError("Command line arguments need to be input_file_path, output_file_path, ch_file_path,"
-                      "and subject_info_file_path")
-    d = Data(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+    if len(sys.argv) != 6:
+        raise IOError("Command line arguments need to be input_file_path, output_file_path, ch_file_path, "
+                      "subject_info_file_path, and parameter_file_path")
+    valid_mutation_effects, valid_ancestries, valid_genotypes = read_parameter_file(sys.argv[5])
+    d = Data(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4],
+             valid_mutation_effects, valid_ancestries, valid_genotypes)

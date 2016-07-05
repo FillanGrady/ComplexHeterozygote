@@ -302,7 +302,7 @@ class PatientGenotype:
     """
     This class takes care of one coding_gene for one patient, for one list of genotypes
     For example, AP00025.1 for HG01302 and [ComplexHeterozygotes]
-    Everytime you see a new mutation that will affect AP00025.1, call parse_new_alleles
+    Every time you see a new mutation that will affect AP00025.1, call parse_new_alleles
     self.value holds whether or not this coding_gene for this patient is one of the types in valid_genotypes
     """
     def __init__(self, valid_genotypes):

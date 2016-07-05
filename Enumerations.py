@@ -119,7 +119,8 @@ class MutationEffects(Enum):
         return [MutationEffects.CODON_CHANGE_PLUS_CODON_DELETION, MutationEffects.CODON_CHANGE_PLUS_CODON_INSERTION,
                 MutationEffects.CODON_DELETION, MutationEffects.CODON_INSERTION, MutationEffects.EXON_DELETED,
                 MutationEffects.FRAME_SHIFT, MutationEffects.NON_SYNONYMOUS_CODING, MutationEffects.SPLICE_SITE_ACCEPTOR,
-                MutationEffects.SPLICE_SITE_DONOR, MutationEffects.START_LOST, MutationEffects.STOP_GAINED, MutationEffects.START_LOST]
+                MutationEffects.SPLICE_SITE_DONOR, MutationEffects.START_LOST, MutationEffects.STOP_LOST,
+                MutationEffects.START_GAINED, MutationEffects.STOP_GAINED]
 
     def __str__(self):
         return self.name
