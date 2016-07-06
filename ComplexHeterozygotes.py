@@ -7,6 +7,43 @@ import os
 import time
 
 
+class CheckExome:
+    """
+    This class is designed to filter out intron variants.
+    If your vcf file contains whole-genome variants,
+    but you only want exon variants,
+    and you have a .bed file identifying the location of the variants
+    Pass in the chromosome number and position of a variant into check()
+    """
+    def __init__(self, bed_file_path):
+        self.bed_file_path = bed_file_path
+        self.bed_file = open(self.bed_file_path, mode='r')
+        self.chromosome_number = -1
+        self.chromosome_begin = -1
+        self.chromosome_end = -1
+
+    def check(self, check_chromosome_number, check_chromosome_position):
+        if check_chromosome_number < self.chromosome_number or \
+                (check_chromosome_position < self.chromosome_begin and check_chromosome_number == self.chromosome_number):
+            self.bed_file.close()  # If you ask it to check a previous line, it has to go back and reopen
+            self.bed_file = open(self.bed_file_path, mode='r')
+        while self.chromosome_number != check_chromosome_number or self.chromosome_end <= check_chromosome_position:
+            line = self.bed_file.readline().strip()
+            self.chromosome_number, self.chromosome_begin, self.chromosome_end = map(int, line.split("\t")[0:3])
+        if self.chromosome_begin < check_chromosome_position:
+            return True
+        else:
+            return False
+
+    def check_mutation(self, mutation):
+        check_chromosome_number = int(mutation["#CHROM"])
+        check_chromosome_position = int(mutation["POS"])
+        return self.check(check_chromosome_number, check_chromosome_position)
+
+    def __del__(self):
+        self.bed_file.close()
+
+
 class Data:
     """
     This class is a wrapper for a whole vcf file
@@ -16,7 +53,7 @@ class Data:
         and constantly updates this dictionary as it sees new mutations
     It acts as a pipe for mutations, collecting their effects on coding_genes
     """
-    def __init__(self, annotated_file_path, output_file_path, count_file_path, subject_info_file_path,
+    def __init__(self, annotated_file_path, output_file_path, count_file_path, subject_info_file_path, bed_file_path=None,
                  valid_genotypes=None, valid_mutation_effects=None, valid_ancestries=None):
         self.abbreviated_titles = {}
         """
@@ -31,7 +68,12 @@ class Data:
         self.annotated_file_path = annotated_file_path
         self.output_file_path = output_file_path
         self.subject_info_file_path = subject_info_file_path
+        self.bed_file_path = bed_file_path
 
+        if self.bed_file_path is None:
+            self.check_exome = None
+        else:
+            self.check_exome = CheckExome(self.bed_file_path)
         if valid_genotypes is None:
             self.valid_genotypes = [Genotypes.CompoundHeterozygotes]
         else:
@@ -88,7 +130,7 @@ class Data:
         for line in file_object:
             line = decode(line)
             count += 1
-            if count % 100 == 0:
+            if count % 1000 == 0:
                 print("Line number: %s\nTime: %s" % (count, time.time() - start))
                 start = time.time()
             self.mutation = Mutation(self.header, line.strip(), self.abbreviated_titles)
@@ -102,6 +144,9 @@ class Data:
                 continue
             if not self.mutation.rare_variant(populations_to_consider=self.valid_ancestries):
                 continue
+            if self.check_exome is not None:
+                if not self.check_exome.check_mutation(self.mutation):
+                    continue
             self.get_coding_genes()
             for mutation in self.mutations:
                 self.parse_new_mutation(mutation)
@@ -195,33 +240,34 @@ def read_parameter_file(parameter_file_path):
         enumeration = None
         valid_list = None
         for line in f:
-            line = line.strip().lower()
-            if line in ["mutation_effects", "ancestry", "genotypes"]:
+            line = line.strip().upper()
+            if line in ["MUTATION_EFFECTS", "ANCESTRY", "GENOTYPES"]:
                 state = line
             else:
                 if state is None:
                     raise IOError("Needs header specifying Mutation_Effects, Ancestry, or Genotypes")
                 else:
-                    if line.count(" ") == 2:
+                    if line.count(" ") == 1:
                         name = line.split(" ")[0]
-                        if state == "mutation_effects":
+                        if state == "MUTATION_EFFECTS":
                             enumeration = MutationEffects
                             valid_list = valid_mutation_effects
-                        elif state == "ancestry":
+                        elif state == "ANCESTRY":
                             enumeration = Ancestry
                             valid_list = valid_ancestries
-                        elif state == "genotypes":
+                        elif state == "GENOTYPES":
                             enumeration = Genotypes
                             valid_list = valid_genotypes
                         for e_name, e_member in enumeration.__members__.items():
-                            if e_name == name:
-                                valid_list.append(e_name)
+                            if e_name.lower() == name.lower():
+                                valid_list.append(enumeration(e_member))
     return valid_mutation_effects, valid_ancestries, valid_genotypes
 
 if __name__ == '__main__':
-    if len(sys.argv) != 6:
+    if len(sys.argv) not in [6, 7]:
         raise IOError("Command line arguments need to be input_file_path, output_file_path, ch_file_path, "
-                      "subject_info_file_path, and parameter_file_path")
+                      "subject_info_file_path, parameter_file_path, and optionally bed_file_path")
     valid_mutation_effects, valid_ancestries, valid_genotypes = read_parameter_file(sys.argv[5])
-    d = Data(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4],
-             valid_mutation_effects, valid_ancestries, valid_genotypes)
+    d = Data(annotated_file_path=sys.argv[1], output_file_path=sys.argv[2], count_file_path=sys.argv[3],
+             subject_info_file_path=sys.argv[4], bed_file_path=None, valid_mutation_effects=valid_mutation_effects,
+             valid_ancestries=valid_ancestries, valid_genotypes=valid_genotypes)
