@@ -99,6 +99,8 @@ class Mutation:
         """
         allele_counts = defaultdict(int)
         for patient in self.header.patient_columns:
+            if self[patient][1] == "/":  # If it's unphased, just ignore it, and assume both alleles are reference
+                self[patient] = "0|0"
             allele_counts[self[patient][0]] += 1
             allele_counts[self[patient][-1]] += 1
         self['AMax'] = 2 * len(self.header.patient_columns)
