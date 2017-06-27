@@ -68,6 +68,11 @@ class Mutation:
                     self[title] = column
                 self.header = header
                 self.abbreviated_titles = abbreviated_titles
+                try:
+                    id = self["ID"]
+                except KeyError as e:
+                    print(line)
+                    raise e
             else:
                 raise ValueError("Unrecognized arguments")
         elif len(args) == 1:
@@ -241,6 +246,8 @@ class Mutation:
                 gene_effect = effect.split("(")[0]
                 gene = effect.split("|")[5]
                 for each_effect in gene_effect.split("&"):
+                    if each_effect not in mutation_effect_lookup:
+                        each_effect = each_effect.split("+")[0]
                     if mutation_effect_lookup[each_effect] in mutation_effects:
                         coding_genes.add(gene)
         elif "ANN" in self:
@@ -250,6 +257,8 @@ class Mutation:
                 gene_effect = effect[1]
                 gene = effect[3]
                 for each_effect in gene_effect.split("&"):
+                    if each_effect not in mutation_effect_lookup:
+                        each_effect = each_effect.split("+")[0]
                     if each_effect in mutation_effect_lookup:
                         if mutation_effect_lookup[each_effect] in mutation_effects:
                             coding_genes.add(gene)
@@ -288,8 +297,7 @@ class Mutation:
                     self.abbreviated_titles[item] = possible_key_matches[0]
                     return self.data[possible_key_matches[0]]
                 elif len(possible_key_matches) == 0:
-                    print(item)
-                    raise KeyError("No matches found.  Misspelling?")
+                    raise KeyError("No matches found.  Misspelling of %s?" % item)
                 else:
                     raise KeyError("Matches more than one entry")
 

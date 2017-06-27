@@ -79,6 +79,13 @@ class MutationEffects(Enum):
     MISSENSE = 33
     DISRUPTIVE_INFRAME_DELETION = 34
     DISRUPTIVE_INFRAME_INSERTION = 35
+    SPLICE_SITE_ACCEPTOR_INTRON = 36
+    SPLICE_SITE_DONOR_INTRON = 37
+    SPLICE_SITE_REGION_INTRON = 38
+    SPLICE_SITE_ACCEPTOR_EXON = 39
+    SPLICE_SITE_DONOR_EXON = 40
+    SPLICE_SITE_REGION_EXON = 41
+    SPLICE_SITE_REGION = 42
 
     @staticmethod
     def str_lookup():
@@ -108,6 +115,17 @@ class MutationEffects(Enum):
         d["FRAMESHIFT_VARIANT"] = MutationEffects.FRAME_SHIFT
         d["5_PRIME_UTR_PREMATURE_START_CODON_GAIN_VARIANT"] = MutationEffects.UTR_5_PREMATURE_START
         d["3_PRIME_UTR_PREMATURE_START_CODON_GAIN_VARIANT"] = MutationEffects.UTR_3_PREMATURE_START
+        d["SPLICE_SITE_ACCEPTOR+INTRON"] = MutationEffects.SPLICE_SITE_ACCEPTOR_INTRON
+        d["SPLICE_SITE_DONOR+INTRON"] = MutationEffects.SPLICE_SITE_DONOR_INTRON
+        d["SPLICE_SITE_REGION+INTRON"] = MutationEffects.SPLICE_SITE_REGION_INTRON
+        d["SPLICE_SITE_ACCEPTOR+EXON"] = MutationEffects.SPLICE_SITE_ACCEPTOR_EXON
+        d["SPLICE_SITE_DONOR+EXON"] = MutationEffects.SPLICE_SITE_DONOR_EXON
+        d["SPLICE_SITE_REGION+EXON"] = MutationEffects.SPLICE_SITE_REGION_EXON
+        d["NON_SYNONYMOUS_CODING+SPLICE_SITE_REGION"] = MutationEffects.NON_SYNONYMOUS_CODING
+        d["FRAME_SHIFT+SPLICE_SITE_REGION"] = MutationEffects.FRAME_SHIFT
+        d["SPLICE_SITE_REGION+SYNONYMOUS_CODING"] = MutationEffects.SYNONYMOUS_CODING
+        d["FRAME_SHIFT+START_LOST"] = MutationEffects.FRAME_SHIFT
+        d["START_LOST+SPLICE_SITE_REGION"] = MutationEffects.START_LOST
         return d
 
     @staticmethod
@@ -120,7 +138,8 @@ class MutationEffects(Enum):
                 MutationEffects.CODON_DELETION, MutationEffects.CODON_INSERTION, MutationEffects.EXON_DELETED,
                 MutationEffects.FRAME_SHIFT, MutationEffects.NON_SYNONYMOUS_CODING, MutationEffects.SPLICE_SITE_ACCEPTOR,
                 MutationEffects.SPLICE_SITE_DONOR, MutationEffects.START_LOST, MutationEffects.STOP_LOST,
-                MutationEffects.START_GAINED, MutationEffects.STOP_GAINED]
+                MutationEffects.START_GAINED, MutationEffects.STOP_GAINED, MutationEffects.SPLICE_SITE_ACCEPTOR_INTRON,
+                MutationEffects.SPLICE_SITE_DONOR_INTRON]
 
     def __str__(self):
         return self.name
