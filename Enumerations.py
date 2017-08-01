@@ -39,6 +39,12 @@ class Genotypes(Enum):
     TwoMutations = 3
     OneMutation = 4
 
+class SearchLevel(Enum):
+    """
+    Holds whether the program will search and aggregate based on the gene affected, or the transcript affected
+    """
+    Gene = 1
+    Transcript = 2
 
 class MutationEffects(Enum):
     """

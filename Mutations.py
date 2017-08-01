@@ -1,4 +1,4 @@
-from Enumerations import Ancestry, MutationEffects, Genotypes
+from Enumerations import Ancestry, MutationEffects, Genotypes, SearchLevel
 import os
 import re
 from collections import defaultdict
@@ -209,18 +209,22 @@ class Mutation:
             return False
         return True
 
-    def get_coding_genes(self, mutation_effects=None, mutation_effect_lookup=None):
+    def get_coding_genes(self, mutation_effects=None, mutation_effect_lookup=None, search_level=SearchLevel.Gene):
         """
+        This code is very annotation dependent, and may have to be changed depending on how you annotated your files
+
+        If search_level is set to SearchLevel.Transcript, then this will deal with the transcript, not the gene
+
         Each mutation has a column, labeled "EFF" or "ANN" detailing how this mutation will effect the genes
         This column contains a lot of information, but we only care about the affected gene and how it is affected
         If the column is called "EFF", it was created by an old version of the annotation software, and it'll look like:
             ______              __________
             INTRON(MODIFIER|||||AP000525.8|processed_transcript|NON_CODING|ENST00000413768|7)
-            gene effect         gene
+            gene effect         gene                                       transcript
         If the column is called "ANN", it was annotated by a newer software, and it'll look like:
               __________________          _______________
             A|SYNONYMOUS_VARIANT|LOW|TPTE|ENSG00000166157|TRANSCRIPT|ENST00000342420|PROTEIN_CODING|16/22|C.939C>T|P.ALA313ALA|1269/2036|939/1542|313/513||
-              gene effect                 gene
+              gene effect                 gene                       transcript
         This function only returns coding_genes that will by changed by the mutation
         As such, the user can specify if they're looking for mutations that are changing Exons, Introns, Synonymous...
             (Further options in Enumerations.MutationEffects)
@@ -244,7 +248,10 @@ class Mutation:
             for effect in effects:
                 effect = effect.upper()
                 gene_effect = effect.split("(")[0]
-                gene = effect.split("|")[5]
+                if search_level == SearchLevel.Gene:
+                    gene = effect.split("|")[5]
+                else:
+                    gene = effect.split("|")[8]
                 for each_effect in gene_effect.split("&"):
                     if each_effect not in mutation_effect_lookup:
                         each_effect = each_effect.split("+")[0]
@@ -255,7 +262,10 @@ class Mutation:
             for effect in effects:
                 effect = effect.upper().split("|")
                 gene_effect = effect[1]
-                gene = effect[3]
+                if search_level == SearchLevel.Gene:
+                    gene = effect[3]
+                else:
+                    gene = effect[6]
                 for each_effect in gene_effect.split("&"):
                     if each_effect not in mutation_effect_lookup:
                         each_effect = each_effect.split("+")[0]

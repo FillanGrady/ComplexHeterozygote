@@ -1,6 +1,6 @@
 import sys
 from Patients import Patients
-from Enumerations import Genotypes, MutationEffects, Ancestry
+from Enumerations import Genotypes, MutationEffects, Ancestry, SearchLevel
 from Mutations import Mutation, Header, CodingGeneMutation, CodingGeneMutationHeader
 import zipfile
 import os
@@ -54,12 +54,12 @@ class Data:
     It acts as a pipe for mutations, collecting their effects on coding_genes
     """
     def __init__(self, annotated_file_path, output_file_path, count_file_path, subject_info_file_path, bed_file_path=None,
-                 valid_genotypes=None, valid_mutation_effects=None, valid_ancestries=None):
+                 valid_genotypes=None, valid_mutation_effects=None, valid_ancestries=None, search_level=None):
         self.abbreviated_titles = {}
         """
         Abbreviated titles is a dictionary that is shallow copied into all the instances of Mutation
         It's role is to provide an easy lookup for abbreviated titles that is shared between mutations
-        The first you look up mutation['Ancestral'] instead of mutation["Ancestral Allele"], the program will
+        The first time you look up mutation['Ancestral'] instead of mutation["Ancestral Allele"], the program will
             have to look through all the keys to find if any match
         Afterwards, however, an entry will be added to abbreviated_titles;
             abbreviated_titles['Ancestral'] = 'Ancestral Allele'
@@ -86,6 +86,7 @@ class Data:
             self.valid_ancestries = Ancestry.all()
         else:
             self.valid_ancestries = valid_ancestries
+        self.search_level = search_level
 
         self.mutation = None
         self.mutations = []
@@ -128,6 +129,8 @@ class Data:
         start = time.time()
         count = 0
         for line in file_object:
+            if line == "":
+                continue
             line = decode(line)
             count += 1
             if count % 1000 == 0:
@@ -163,7 +166,8 @@ class Data:
         """
         self.mutations = []
         coding_genes = self.mutation.get_coding_genes(mutation_effects=self.valid_mutation_effects,
-                                                      mutation_effect_lookup=self.mutation_effect_lookup)
+                                                      mutation_effect_lookup=self.mutation_effect_lookup,
+                                                      search_level=self.search_level)
         for coding_gene in coding_genes:
             new_mutation = Mutation(self.mutation)
             new_mutation["CODING_GENE"] = coding_gene
@@ -235,17 +239,18 @@ def read_parameter_file(parameter_file_path):
     valid_mutation_effects = []
     valid_ancestries = []
     valid_genotypes = []
+    valid_search_levels = []
     with open(parameter_file_path, 'r') as f:
         state = None
         enumeration = None
         valid_list = None
         for line in f:
             line = line.strip().upper()
-            if line in ["MUTATION_EFFECTS", "ANCESTRY", "GENOTYPES"]:
+            if line in ["MUTATION_EFFECTS", "ANCESTRY", "GENOTYPES", "SEARCH_LEVEL"]:
                 state = line
             else:
                 if state is None:
-                    raise IOError("Needs header specifying Mutation_Effects, Ancestry, or Genotypes")
+                    raise IOError("Needs header specifying Mutation_Effects, Ancestry, Genotypes, or Search Level")
                 else:
                     if line.count(" ") == 1:
                         name = line.split(" ")[0]
@@ -258,16 +263,25 @@ def read_parameter_file(parameter_file_path):
                         elif state == "GENOTYPES":
                             enumeration = Genotypes
                             valid_list = valid_genotypes
+                        elif state == "SEARCH_LEVEL":
+                            enumeration = SearchLevel
+                            valid_list = valid_search_levels
                         for e_name, e_member in enumeration.__members__.items():
                             if e_name.lower() == name.lower():
                                 valid_list.append(enumeration(e_member))
-    return valid_mutation_effects, valid_ancestries, valid_genotypes
+    if len(valid_search_levels) != 1:
+        raise IOError("Search level in parameter file must be set to either Gene or Transcript")
+    return valid_mutation_effects, valid_ancestries, valid_genotypes, valid_search_levels[0]
 
 if __name__ == '__main__':
     if len(sys.argv) not in [6, 7]:
         raise IOError("Command line arguments need to be input_file_path, output_file_path, ch_file_path, "
                       "subject_info_file_path, parameter_file_path, and optionally bed_file_path")
-    valid_mutation_effects, valid_ancestries, valid_genotypes = read_parameter_file(sys.argv[5])
+    bed_file_path = None
+    if len(sys.argv) == 7:
+        bed_file_path = sys.argv[6]
+    valid_mutation_effects, valid_ancestries, valid_genotypes, search_level = read_parameter_file(sys.argv[5])
     d = Data(annotated_file_path=sys.argv[1], output_file_path=sys.argv[2], count_file_path=sys.argv[3],
-             subject_info_file_path=sys.argv[4], bed_file_path=None, valid_mutation_effects=valid_mutation_effects,
-             valid_ancestries=valid_ancestries, valid_genotypes=valid_genotypes)
+             subject_info_file_path=sys.argv[4], bed_file_path=bed_file_path,
+             valid_mutation_effects=valid_mutation_effects, valid_ancestries=valid_ancestries,
+             valid_genotypes=valid_genotypes, search_level=search_level)
