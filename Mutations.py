@@ -278,6 +278,8 @@ class Mutation:
                             coding_genes.add(gene)
                     else:
                         print(effect)
+        if "ENST00000332585" in coding_genes:
+            pass
         return coding_genes
 
     def __repr__(self):
@@ -341,7 +343,7 @@ class PatientGenotype:
         """
         if not self.value:
             maternal_allele = alleles[0] != "0"
-            paternal_allele = alleles[1] != "0"  # False is wildtype, True is mutated
+            paternal_allele = alleles[2] != "0"  # False is wildtype, True is mutated
             if Genotypes.OneMutation in self.valid_genotypes:
                 if maternal_allele or paternal_allele:
                     self.value = True
