@@ -41,6 +41,7 @@ SPLICE_SITE_ACCEPTOR_EXON x
 SPLICE_SITE_DONOR_EXON x
 SPLICE_SITE_REGION_EXON
 SPLICE_SITE_REGION
+GENE_FUSION_REVERSE
 
 Ancestry
 Overall x
@@ -52,10 +53,13 @@ SouthAsian x
 
 Genotypes
 CompoundHeterozygotes x
-Homozygous
+Homozygous x
 TwoMutations
 OneMutation
 
 Search_Level
 Gene
 Transcript x
+
+Minor_Allele_Frequency
+MAF 0.005

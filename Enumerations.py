@@ -92,6 +92,7 @@ class MutationEffects(Enum):
     SPLICE_SITE_DONOR_EXON = 40
     SPLICE_SITE_REGION_EXON = 41
     SPLICE_SITE_REGION = 42
+    GENE_FUSION_REVERSE = 43
 
     @staticmethod
     def str_lookup():

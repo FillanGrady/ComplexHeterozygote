@@ -54,7 +54,7 @@ class Data:
     It acts as a pipe for mutations, collecting their effects on coding_genes
     """
     def __init__(self, annotated_file_path, output_file_path, count_file_path, subject_info_file_path, bed_file_path=None,
-                 valid_genotypes=None, valid_mutation_effects=None, valid_ancestries=None, search_level=None):
+                 valid_genotypes=None, valid_mutation_effects=None, valid_ancestries=None, search_level=None, MAF=0.02):
         self.abbreviated_titles = {}
         """
         Abbreviated titles is a dictionary that is shallow copied into all the instances of Mutation
@@ -69,6 +69,7 @@ class Data:
         self.output_file_path = output_file_path
         self.subject_info_file_path = subject_info_file_path
         self.bed_file_path = bed_file_path
+        self.MAF = MAF
 
         if self.bed_file_path is None:
             self.check_exome = None
@@ -113,7 +114,7 @@ class Data:
                     self.parse_file_object(f)
         for coding_gene, ch_count in self.ch_counts.items():
             for patient in ch_count.header.patient_columns:
-                ch_count["CHCOUNT"] += int(ch_count[patient].value)
+                ch_count["COUNT"] += int(ch_count[patient].value)
         self.save_count_file(count_file_path)
 
     def parse_file_object(self, file_object):
@@ -145,7 +146,7 @@ class Data:
             self.mutation.add_frequencies()
             if not self.mutation.split_info():  # If the information on the mutation type (intron, exon...) is missing
                 continue
-            if not self.mutation.rare_variant(populations_to_consider=self.valid_ancestries):
+            if not self.mutation.rare_variant(threshold=MAF, populations_to_consider=self.valid_ancestries):
                 continue
             if self.check_exome is not None:
                 if not self.check_exome.check_mutation(self.mutation):
@@ -181,7 +182,7 @@ class Data:
         For example, if we have two mutations, that look like this
         ID      Coding_gene     Patient1    Patient2
         var1    gene1           1|0         1|1
-        var2    gene2           0|1         0|0
+        var2    gene1           0|1         0|0
         Our output would like this if Genotypes=[Genotypes.ComplexHeterozygous]
         Coding_gene     Patient1    Patient2
         gene1           1           0
@@ -240,20 +241,24 @@ def read_parameter_file(parameter_file_path):
     valid_ancestries = []
     valid_genotypes = []
     valid_search_levels = []
+    MAF = None
     with open(parameter_file_path, 'r') as f:
         state = None
         enumeration = None
         valid_list = None
         for line in f:
             line = line.strip().upper()
-            if line in ["MUTATION_EFFECTS", "ANCESTRY", "GENOTYPES", "SEARCH_LEVEL"]:
+            if line in ["MUTATION_EFFECTS", "ANCESTRY", "GENOTYPES", "SEARCH_LEVEL", "MINOR_ALLELE_FREQUENCY"]:
                 state = line
             else:
                 if state is None:
-                    raise IOError("Needs header specifying Mutation_Effects, Ancestry, Genotypes, or Search Level")
+                    raise IOError("Needs header specifying Mutation_Effects, Ancestry, Genotypes, Search Level, or MAF")
                 else:
                     if line.count(" ") == 1:
                         name = line.split(" ")[0]
+                        if state == "MINOR_ALLELE_FREQUENCY":
+                            if name == "MAF":
+                                MAF = float(line.split(" ")[1])
                         if state == "MUTATION_EFFECTS":
                             enumeration = MutationEffects
                             valid_list = valid_mutation_effects
@@ -271,7 +276,7 @@ def read_parameter_file(parameter_file_path):
                                 valid_list.append(enumeration(e_member))
     if len(valid_search_levels) != 1:
         raise IOError("Search level in parameter file must be set to either Gene or Transcript")
-    return valid_mutation_effects, valid_ancestries, valid_genotypes, valid_search_levels[0]
+    return valid_mutation_effects, valid_ancestries, valid_genotypes, valid_search_levels[0], MAF
 
 if __name__ == '__main__':
     if len(sys.argv) not in [6, 7]:
@@ -280,8 +285,8 @@ if __name__ == '__main__':
     bed_file_path = None
     if len(sys.argv) == 7:
         bed_file_path = sys.argv[6]
-    valid_mutation_effects, valid_ancestries, valid_genotypes, search_level = read_parameter_file(sys.argv[5])
+    valid_mutation_effects, valid_ancestries, valid_genotypes, search_level, MAF = read_parameter_file(sys.argv[5])
     d = Data(annotated_file_path=sys.argv[1], output_file_path=sys.argv[2], count_file_path=sys.argv[3],
              subject_info_file_path=sys.argv[4], bed_file_path=bed_file_path,
              valid_mutation_effects=valid_mutation_effects, valid_ancestries=valid_ancestries,
-             valid_genotypes=valid_genotypes, search_level=search_level)
+             valid_genotypes=valid_genotypes, search_level=search_level, MAF=MAF)

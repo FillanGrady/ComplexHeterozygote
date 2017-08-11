@@ -25,7 +25,7 @@ class Header:
                     + self.input_titles[4:7] + info_columns + \
                     [x for x in self.input_titles[7:] if x not in self.patient_columns] + \
                     ["AC", "AMax", "AF"]
-                self.count_columns = ["CODING_GENE", "CHCOUNT"] + self.patient_columns
+                self.count_columns = ["CODING_GENE", "COUNT"] + self.patient_columns
                 self.var_columns = [x for x in self.output_titles if x not in self.count_columns]
             elif isinstance(args[0], Header):
                 """
@@ -118,7 +118,11 @@ class Mutation:
                 reference_allele_number = int(allele_number)
                 reference_count = allele_count
 
-        if reference_allele_number != 0:  # If the reference allele is not the most common
+        """
+        This code will switch the reference and alternate alleles if the alternate allele is more common
+        For now, this is causing problems with phasing, and will be deactivated
+        """
+        if False: #reference_allele_number != 0:  # If the reference allele is not the most common
             alternate_alleles = self["ALT"].split(",")
             self["REF"], alternate_alleles[reference_allele_number - 1] = \
                 alternate_alleles[reference_allele_number - 1], self["REF"]
@@ -134,9 +138,9 @@ class Mutation:
                 else:
                     new_genotype += self[patient][0]
                 new_genotype += "|"
-                if self[patient][0] == '0':
+                if self[patient][1] == '0':
                     new_genotype += reference_allele_number
-                elif self[patient][0] == reference_allele_number:
+                elif self[patient][1] == reference_allele_number:
                     new_genotype += "0"
                 else:
                     new_genotype += self[patient][0]
@@ -166,10 +170,10 @@ class Mutation:
         else:
             return True
 
-    def rare_variant(self, threshold=0.02, populations_to_consider=Ancestry.all()):
+    def rare_variant(self, threshold, populations_to_consider=Ancestry.all()):
         """
         This function returns whether or not this mutation is rare;
-        if it has an incidence of 2% or greater in the populations
+        if it has an incidence of MAF or greater in the populations
         However, mutation.rare_variant takes an optional argument which can specify which populations should be checked
         :populations_to_consider: A list of objects of type Ancestry
         :return: Boolean, if this mutation is "rare"; <.02 for all populations
@@ -356,7 +360,7 @@ class PatientGenotype:
                 if paternal_allele and self.maternal_seen:
                     self.value = True
                     return
-            if Genotypes.Homozygous:
+            if Genotypes.Homozygous in self.valid_genotypes:
                 if maternal_allele and paternal_allele:
                     self.value = True
                     return
@@ -376,7 +380,7 @@ class CodingGeneMutation(Mutation):
     def __init__(self, ch_count_header, coding_gene, valid_genotypes):
         self.header = ch_count_header
         self.valid_genotypes = valid_genotypes
-        self.data = {'CODING_GENE': coding_gene, 'CHCOUNT': 0}
+        self.data = {'CODING_GENE': coding_gene, 'COUNT': 0}
         for patient in self.header.patient_columns:
             self.data[patient] = PatientGenotype(self.valid_genotypes)
 
