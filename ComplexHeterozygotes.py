@@ -114,7 +114,7 @@ class Data:
                     self.parse_file_object(f)
         for coding_gene, ch_count in self.ch_counts.items():
             for patient in ch_count.header.patient_columns:
-                ch_count["COUNT"] += int(ch_count[patient].value)
+                ch_count["COUNT"] += 1 if ch_count[patient].value is not False else 0
         self.save_count_file(count_file_path)
 
     def parse_file_object(self, file_object):

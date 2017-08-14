@@ -341,36 +341,45 @@ class PatientGenotype:
         """
         Update self.value with new information
         """
-        if not self.value:
+        if self.value is False:
             maternal_allele = alleles[0] != "0"
             paternal_allele = alleles[2] != "0"  # False is wildtype, True is mutated
             if Genotypes.OneMutation in self.valid_genotypes:
                 if maternal_allele or paternal_allele:
-                    self.value = True
+                    self.value = Genotypes.OneMutation
                     return
             if Genotypes.TwoMutations in self.valid_genotypes:
                 if maternal_allele and (paternal_allele or self.paternal_seen):
-                    self.value = True
+                    self.value = Genotypes.TwoMutations
                     return
                 if paternal_allele and (maternal_allele or self.maternal_seen):
-                    self.value = True
+                    self.value = Genotypes.TwoMutations
                     return
             if Genotypes.CompoundHeterozygotes in self.valid_genotypes:
                 if maternal_allele and self.paternal_seen:
-                    self.value = True
+                    self.value = Genotypes.CompoundHeterozygotes
                     return
                 if paternal_allele and self.maternal_seen:
-                    self.value = True
+                    self.value = Genotypes.CompoundHeterozygotes
                     return
             if Genotypes.Homozygous in self.valid_genotypes:
                 if maternal_allele and paternal_allele:
-                    self.value = True
+                    self.value = Genotypes.Homozygous
                     return
             self.maternal_seen = self.maternal_seen or maternal_allele
             self.paternal_seen = self.paternal_seen or paternal_allele
 
     def __repr__(self):
-        return str(int(self.value))
+        if self.value is False:
+            return "0"
+        elif self.value is Genotypes.OneMutation:
+            return "o"
+        elif self.value is Genotypes.TwoMutations:
+            return "t"
+        elif self.value is Genotypes.CompoundHeterozygotes:
+            return "c"
+        elif self.value is Genotypes.Homozygous:
+            return "h"
 
 
 class CodingGeneMutation(Mutation):
