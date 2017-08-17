@@ -70,6 +70,7 @@ class Data:
         self.subject_info_file_path = subject_info_file_path
         self.bed_file_path = bed_file_path
         self.MAF = MAF
+        self.patients = Patients(self.subject_info_file_path)
 
         if self.bed_file_path is None:
             self.check_exome = None
@@ -115,6 +116,11 @@ class Data:
         for coding_gene, ch_count in self.ch_counts.items():
             for patient in ch_count.header.patient_columns:
                 ch_count["COUNT"] += 1 if ch_count[patient].value is not False else 0
+                patient_super_population = self.patients.patients[patient].super_population + "_COUNT"
+                if patient_super_population not in ch_count:
+                    print("%s not found" % patient_super_population)
+                else:
+                    ch_count[patient_super_population] += 1 if ch_count[patient].value is not False else 0
         self.save_count_file(count_file_path)
 
     def parse_file_object(self, file_object):
@@ -125,7 +131,7 @@ class Data:
         while first_line[:2] == "##":  # Gets rid of metadata header
             first_line = decode(file_object.readline())
         self.header = Header(first_line.strip())
-        self.ch_count_header = CodingGeneMutationHeader(self.header, Patients(self.subject_info_file_path))
+        self.ch_count_header = CodingGeneMutationHeader(self.header, self.patients)
         self.output_file.write(repr(self.header))
         start = time.time()
         count = 0

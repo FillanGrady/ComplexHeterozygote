@@ -155,3 +155,13 @@ class MutationEffects(Enum):
 
     def __str__(self):
         return self.name
+
+class SuperPopulations(Enum):
+    """
+    Holds super populations, as defined in SubjectInfo file
+    """
+    EUR = 1
+    EAS = 2
+    AMR = 3
+    SAS = 4
+    AFR = 5

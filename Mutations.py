@@ -1,4 +1,4 @@
-from Enumerations import Ancestry, MutationEffects, Genotypes, SearchLevel
+from Enumerations import Ancestry, MutationEffects, Genotypes, SearchLevel, SuperPopulations
 import os
 import re
 from collections import defaultdict
@@ -25,7 +25,9 @@ class Header:
                     + self.input_titles[4:7] + info_columns + \
                     [x for x in self.input_titles[7:] if x not in self.patient_columns] + \
                     ["AC", "AMax", "AF"]
-                self.count_columns = ["CODING_GENE", "COUNT"] + self.patient_columns
+                self.count_columns = ["CODING_GENE", "COUNT"] + \
+                                     [x[0] + '_COUNT' for x in SuperPopulations.__members__.items()] + \
+                                     self.patient_columns
                 self.var_columns = [x for x in self.output_titles if x not in self.count_columns]
             elif isinstance(args[0], Header):
                 """
@@ -357,16 +359,16 @@ class PatientGenotype:
                 if paternal_allele and (maternal_allele or self.maternal_seen):
                     self.value = Genotypes.TwoMutations
                     return
+            if Genotypes.Homozygous in self.valid_genotypes:
+                if maternal_allele and paternal_allele:
+                    self.value = Genotypes.Homozygous
+                    return
             if Genotypes.CompoundHeterozygotes in self.valid_genotypes:
                 if maternal_allele and self.paternal_seen:
                     self.value = Genotypes.CompoundHeterozygotes
                     return
                 if paternal_allele and self.maternal_seen:
                     self.value = Genotypes.CompoundHeterozygotes
-                    return
-            if Genotypes.Homozygous in self.valid_genotypes:
-                if maternal_allele and paternal_allele:
-                    self.value = Genotypes.Homozygous
                     return
             self.maternal_seen = self.maternal_seen or maternal_allele
             self.paternal_seen = self.paternal_seen or paternal_allele
@@ -394,6 +396,8 @@ class CodingGeneMutation(Mutation):
         self.header = ch_count_header
         self.valid_genotypes = valid_genotypes
         self.data = {'CODING_GENE': coding_gene, 'COUNT': 0}
+        for name, value in SuperPopulations.__members__.items():
+            self.data[name + "_COUNT"] = 0
         for patient in self.header.patient_columns:
             self.data[patient] = PatientGenotype(self.valid_genotypes)
 
