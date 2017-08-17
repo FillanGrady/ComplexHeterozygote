@@ -118,11 +118,7 @@ class Mutation:
                 reference_allele_number = int(allele_number)
                 reference_count = allele_count
 
-        """
-        This code will switch the reference and alternate alleles if the alternate allele is more common
-        For now, this is causing problems with phasing, and will be deactivated
-        """
-        if False: #reference_allele_number != 0:  # If the reference allele is not the most common
+        if reference_allele_number != 0:  # If the reference allele is not the most common
             alternate_alleles = self["ALT"].split(",")
             self["REF"], alternate_alleles[reference_allele_number - 1] = \
                 alternate_alleles[reference_allele_number - 1], self["REF"]
@@ -138,9 +134,9 @@ class Mutation:
                 else:
                     new_genotype += self[patient][0]
                 new_genotype += "|"
-                if self[patient][1] == '0':
+                if self[patient][2] == '0':
                     new_genotype += reference_allele_number
-                elif self[patient][1] == reference_allele_number:
+                elif self[patient][2] == reference_allele_number:
                     new_genotype += "0"
                 else:
                     new_genotype += self[patient][0]
@@ -180,38 +176,46 @@ class Mutation:
         """
         try:
             if Ancestry.Overall in populations_to_consider:
-                if 'AF' not in self:
-                    return False
-                if threshold < float(self['AF']) < (1 - threshold):
+                if not self.rare_variant_population(threshold, 'AF'):
                     return False
             if Ancestry.African in populations_to_consider:
-                if 'AFR_AF' not in self:
-                    return False
-                if threshold < float(self['AFR_AF']) < (1 - threshold):
+                if not self.rare_variant_population(threshold, 'AFR_AF'):
                     return False
             if Ancestry.American in populations_to_consider:
-                if 'AMR_AF' not in self:
-                    return False
-                if threshold < float(self['AMR_AF']) < (1 - threshold):
+                if not self.rare_variant_population(threshold, 'AMR_AF'):
                     return False
             if Ancestry.EastAsian in populations_to_consider:
-                if 'EAS_AF' not in self:
-                    return False
-                if threshold < float(self['EAS_AF']) < (1 - threshold):
+                if not self.rare_variant_population(threshold, 'EAS_AF'):
                     return False
             if Ancestry.European in populations_to_consider:
-                if 'EUR_AF' not in self:
-                    return False
-                if threshold < float(self['EUR_AF']) < (1 - threshold):
+                if not self.rare_variant_population(threshold, 'EUR_AF'):
                     return False
             if Ancestry.SouthAsian in populations_to_consider:
-                if 'SAS_AF' not in self:
+                if not self.rare_variant_population(threshold, 'SAS_AF'):
                     return False
-                if threshold < float(self['SAS_AF']) < (1 - threshold):
+            if Ancestry.ThousandGenomesOverall in populations_to_consider:
+                if not self.rare_variant_population(threshold, 'dbNSFP_1000Gp1_AF'):
+                    return False
+            if Ancestry.ThousandGenomesAfrican in populations_to_consider:
+                if not self.rare_variant_population(threshold, 'dbNSFP_1000Gp1_AFR_AF'):
+                    return False
+            if Ancestry.ThousandGenomesAmerican in populations_to_consider:
+                if not self.rare_variant_population(threshold, 'dbNSFP_1000Gp1_AMR_AF'):
+                    return False
+            if Ancestry.ThousandGenomesAsian in populations_to_consider:
+                if not self.rare_variant_population(threshold, 'dbNSFP_1000Gp1_ASN_AF'):
+                    return False
+            if Ancestry.ThousandGenomesEuropean in populations_to_consider:
+                if not self.rare_variant_population(threshold, 'dbNSFP_1000Gp1_EUR_AF'):
                     return False
         except ValueError:  # If one of the allele frequencies cannot be cast to a float
             return False
         return True
+
+    def rare_variant_population(self, threshold, population):
+        if population not in self:
+            return True
+        return not (threshold < float(self[population]) < (1 - threshold))
 
     def get_coding_genes(self, mutation_effects=None, mutation_effect_lookup=None, search_level=SearchLevel.Gene):
         """
@@ -278,8 +282,6 @@ class Mutation:
                             coding_genes.add(gene)
                     else:
                         print(effect)
-        if "ENST00000332585" in coding_genes:
-            pass
         return coding_genes
 
     def __repr__(self):

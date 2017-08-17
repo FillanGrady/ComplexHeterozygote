@@ -48,7 +48,12 @@ African x
 American x
 EastAsian x
 European x
-SouthAsian x 
+SouthAsian x
+ThousandGenomesOverall x
+ThousandGenomesAfrican x
+ThousandGenomesAmerican x
+ThousandGenomesAsian x
+ThousandGenomesEuropean x
 
 Genotypes
 CompoundHeterozygotes x

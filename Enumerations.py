@@ -8,6 +8,11 @@ class Ancestry(Enum):
     EastAsian = 4
     European = 5
     SouthAsian = 6
+    ThousandGenomesOverall = 7
+    ThousandGenomesAfrican = 8
+    ThousandGenomesAmerican = 9
+    ThousandGenomesAsian = 10
+    ThousandGenomesEuropean = 11
 
     @staticmethod
     def all():
