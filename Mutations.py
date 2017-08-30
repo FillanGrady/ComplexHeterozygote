@@ -104,10 +104,11 @@ class Mutation:
         Some patients have more than one alternate allele.
         If so, the allele count will be the frequency of all alternate alleles
         """
+        unphased_found = False
         allele_counts = defaultdict(int)
         for patient in self.header.patient_columns:
             if self[patient][1] == "/":  # If it's unphased, just ignore it, and assume both alleles are reference
-                self[patient] = "0|0"
+                unphased_found = True
             allele_counts[self[patient][0]] += 1
             allele_counts[self[patient][-1]] += 1
         self['AMax'] = 2 * len(self.header.patient_columns)
@@ -144,6 +145,7 @@ class Mutation:
                     new_genotype += self[patient][0]
                 self[patient] = new_genotype
         self['AF'] = float(self['AC']) / float(self['AMax'])
+        return unphased_found
 
     def split_info(self):
         """

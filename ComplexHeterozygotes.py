@@ -149,11 +149,12 @@ class Data:
                     continue
                 else:
                     self.seen_ids.add(id)
-            self.mutation.add_frequencies()
             if not self.mutation.split_info():  # If the information on the mutation type (intron, exon...) is missing
                 continue
             if not self.mutation.rare_variant(threshold=MAF, populations_to_consider=self.valid_ancestries):
                 continue
+            if self.mutation.add_frequencies() and Genotypes.CompoundHeterozygotes in self.valid_genotypes:
+                raise IOError("Cannot search for compound heterozygotes in unphased data")
             if self.check_exome is not None:
                 if not self.check_exome.check_mutation(self.mutation):
                     continue

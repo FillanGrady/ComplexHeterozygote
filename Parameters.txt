@@ -54,9 +54,21 @@ ThousandGenomesAfrican x
 ThousandGenomesAmerican x
 ThousandGenomesAsian x
 ThousandGenomesEuropean x
+ExAC_Overall x
+ExAC_African x
+ExAC_American x
+ExAC_Adjacent x
+ExAC_EastAsian x
+ExAC_FIN x
+ExAC_NFE x
+ExAC_SouthAsian x
+ESP6500_AA x
+ESP6500_EA x
+ARIC5606_AA x
+ARIC5606_EA x
 
 Genotypes
-CompoundHeterozygotes x
+CompoundHeterozygotes
 Homozygous x
 TwoMutations
 OneMutation

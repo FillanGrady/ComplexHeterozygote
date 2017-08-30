@@ -13,6 +13,18 @@ class Ancestry(Enum):
     ThousandGenomesAmerican = 9
     ThousandGenomesAsian = 10
     ThousandGenomesEuropean = 11
+    ExAC_Overall = 12
+    ExAC_African = 13
+    ExAC_American = 14
+    ExAC_Adjacent = 15
+    ExAC_EastAsian = 16
+    ExAC_FIN = 17
+    ExAC_NFE = 18
+    ExAC_SouthAsian = 19
+    ESP6500_AA = 20
+    ESP6500_EA = 21
+    ARIC5606_AA = 22
+    ARIC5606_EA = 23
 
     @staticmethod
     def all():
