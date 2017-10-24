@@ -5,6 +5,7 @@ from Mutations import Mutation, Header, CodingGeneMutation, CodingGeneMutationHe
 import zipfile
 import os
 import time
+import argparse
 
 
 class CheckExome:
@@ -53,7 +54,7 @@ class Data:
         and constantly updates this dictionary as it sees new mutations
     It acts as a pipe for mutations, collecting their effects on coding_genes
     """
-    def __init__(self, annotated_file_path, output_file_path, count_file_path, subject_info_file_path, bed_file_path=None,
+    def __init__(self, annotated_file_path, output_file_path, count_file_path, subject_info_file_path=None, bed_file_path=None,
                  valid_genotypes=None, valid_mutation_effects=None, valid_ancestries=None, search_level=None, MAF=0.02):
         self.abbreviated_titles = {}
         """
@@ -70,7 +71,6 @@ class Data:
         self.subject_info_file_path = subject_info_file_path
         self.bed_file_path = bed_file_path
         self.MAF = MAF
-        self.patients = Patients(self.subject_info_file_path)
 
         if self.bed_file_path is None:
             self.check_exome = None
@@ -118,9 +118,11 @@ class Data:
                 ch_count["COUNT"] += 1 if ch_count[patient].value is not False else 0
                 patient_super_population = self.patients.patients[patient].super_population + "_COUNT"
                 if patient_super_population not in ch_count:
-                    print("%s not found" % patient_super_population)
+                    if self.patients.patients[patient].super_population != "":
+                        print("%s not found" % patient_super_population)
                 else:
-                    ch_count[patient_super_population] += 1 if ch_count[patient].value is not False else 0
+                    if ch_count[patient].value is not False:
+                        ch_count[patient_super_population] += 1
         self.save_count_file(count_file_path)
 
     def parse_file_object(self, file_object):
@@ -131,6 +133,10 @@ class Data:
         while first_line[:2] == "##":  # Gets rid of metadata header
             first_line = decode(file_object.readline())
         self.header = Header(first_line.strip())
+        if self.subject_info_file_path is not None:
+            self.patients = Patients(subject_info_file_path=self.subject_info_file_path)
+        else:
+            self.patients = Patients(patients=self.header.patient_columns)
         self.ch_count_header = CodingGeneMutationHeader(self.header, self.patients)
         self.output_file.write(repr(self.header))
         start = time.time()
@@ -220,7 +226,7 @@ class Data:
         """
         patients_affected_by_mutation = []
         for patient in self.header.patient_columns:
-            if mutation.data[patient] != "0|0":
+            if mutation.data[patient][0] != "0" and mutation.data[patient][2] != "0":
                 patients_affected_by_mutation.append(patient)
             del mutation.data[patient]
         mutation["PATIENTS"] = ",".join(patients_affected_by_mutation)
@@ -286,14 +292,17 @@ def read_parameter_file(parameter_file_path):
     return valid_mutation_effects, valid_ancestries, valid_genotypes, valid_search_levels[0], MAF
 
 if __name__ == '__main__':
-    if len(sys.argv) not in [6, 7]:
-        raise IOError("Command line arguments need to be input_file_path, output_file_path, ch_file_path, "
-                      "subject_info_file_path, parameter_file_path, and optionally bed_file_path")
-    bed_file_path = None
-    if len(sys.argv) == 7:
-        bed_file_path = sys.argv[6]
-    valid_mutation_effects, valid_ancestries, valid_genotypes, search_level, MAF = read_parameter_file(sys.argv[5])
-    d = Data(annotated_file_path=sys.argv[1], output_file_path=sys.argv[2], count_file_path=sys.argv[3],
-             subject_info_file_path=sys.argv[4], bed_file_path=bed_file_path,
+    parser = argparse.ArgumentParser(description="Search for phenotypic differences based on a vcf file")
+    parser.add_argument('--input', '-i', help='Input vcf file', required=True)
+    parser.add_argument('--output', '-o', help='Output vcf file', required=True)
+    parser.add_argument('--count', '-c', help='Count output file', required=True)
+    parser.add_argument('--parameters', '-p', help='Parameter file', required=True)
+    parser.add_argument('--bed', '-b', help='Optional bed file')
+    parser.add_argument('--subjects', '-s', help='Optional csv file with subject and population information')
+    args = parser.parse_args()
+
+    valid_mutation_effects, valid_ancestries, valid_genotypes, search_level, MAF = read_parameter_file(args.parameters)
+    d = Data(annotated_file_path=args.input, output_file_path=args.output, count_file_path=args.count,
+             subject_info_file_path=args.subjects, bed_file_path=args.bed,
              valid_mutation_effects=valid_mutation_effects, valid_ancestries=valid_ancestries,
              valid_genotypes=valid_genotypes, search_level=search_level, MAF=MAF)

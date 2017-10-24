@@ -19,8 +19,7 @@ class Header:
                 self.input_titles = header_line.split("\t")
                 info_columns = ["AA", "AC", "AF", "AFR_AF", "AMR_AF", "AN", "DP", "EAS_AF", "EUR_AF", "HRun", "NS",
                                 "SAS_AF", "VT", "EFF"]
-                self.patient_match = re.compile("[A-Z]{2}\d{5}")  # Matches titles that look like 'HG00590'
-                self.patient_columns = [x for x in self.input_titles if self.patient_match.match(x) is not None]
+                self.patient_columns = [x for x in self.input_titles if bool(re.search(r'\d', x))]
                 self.output_titles = self.input_titles[0:1] + ["PATIENTS"] + self.input_titles[1:4] + ["CODING_GENE"]\
                     + self.input_titles[4:7] + info_columns + \
                     [x for x in self.input_titles[7:] if x not in self.patient_columns] + \
@@ -117,7 +116,7 @@ class Mutation:
         reference_allele_number = -1  # This code chunk identifies which allele has the greatest frequency
         reference_count = -1
         for allele_number, allele_count in allele_counts.items():
-            if allele_count > reference_count:
+            if allele_count > reference_count and allele_number != ".":
                 reference_allele_number = int(allele_number)
                 reference_count = allele_count
 
@@ -130,19 +129,21 @@ class Mutation:
             reference_allele_number = str(reference_allele_number)
             for patient in self.header.patient_columns:
                 new_genotype = ""
-                if self[patient][0] == '0':
+                allele = self[patient][0]
+                if allele == '0':
                     new_genotype += reference_allele_number
-                elif self[patient][0] == reference_allele_number:
+                elif allele == reference_allele_number:
                     new_genotype += "0"
                 else:
-                    new_genotype += self[patient][0]
+                    new_genotype += allele
                 new_genotype += "|"
-                if self[patient][2] == '0':
+                allele = self[patient][2]
+                if allele == '0':
                     new_genotype += reference_allele_number
-                elif self[patient][2] == reference_allele_number:
+                elif allele == reference_allele_number:
                     new_genotype += "0"
                 else:
-                    new_genotype += self[patient][0]
+                    new_genotype += allele
                 self[patient] = new_genotype
         self['AF'] = float(self['AC']) / float(self['AMax'])
         return unphased_found
@@ -398,6 +399,7 @@ class CodingGeneMutation(Mutation):
         self.header = ch_count_header
         self.valid_genotypes = valid_genotypes
         self.data = {'CODING_GENE': coding_gene, 'COUNT': 0}
+        self.abbreviated_titles = {}
         for name, value in SuperPopulations.__members__.items():
             self.data[name + "_COUNT"] = 0
         for patient in self.header.patient_columns:
