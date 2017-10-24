@@ -6,29 +6,29 @@ class Patient:
     Used to represent information about each patient
     Gender, ancestry....
     """
-    def __init__(self, line=None, patient_name=None):
+    def __init__(self, patient_name, titles=None, line=None):
         """
-        Two options;
-        From csv file...
-        Patients should be read in line by line from a csv file
-        formatted like this:
-        PatientName,    Gender, Population, Superpopulation
-        HG00096,        1,      GBR,        EUR
-        Read each line into Patient()
+        Insert data into dictionary
+        patient_name = 'HG0096'
+        titles = 'Patient_name', 'Gender', 'Population'
+        line = 'HG0096, M, GBR'
 
-        From patient_name, leaving other fields blank
+        causes
+        self.patient_name = 'HG0096'
+        self.data = ['Gender': 'M', 'Population': 'GBR']
         """
-        if line is not None:
-            self.patient_name, gender, self.population, self.super_population = line.split(",")
-            if gender == "1":
-                self.gender = "M"
-            elif gender == "2":
-                self.gender = "F"
-        if patient_name is not None:
-            self.patient_name = patient_name
-            self.gender = ""
-            self.population = ""
-            self.super_population = ""
+        self.data = {}
+        self.patient_name = patient_name
+        if titles is not None and line is not None:
+            fields = line.strip().split(",")
+            if len(titles) != len(fields):
+                raise TypeError("Different title and line length.  "
+                                "Please remove any extra commas from Subject Info file")
+            for title, field in zip(titles, fields):
+                self.data[title] = field
+            for key in list(self.data.keys()):
+                if self.data[key] == self.patient_name:
+                    del self.data[key]
 
     def __hash__(self):
         return hash(self.patient_name)
@@ -43,6 +43,7 @@ class Patients:
         Creates a list of Patients from an input file or from an existing list
         Call this only with patients OR subject_info_file_path
         """
+        self.possibilities = {} # Holds the possible entries for every header
         if patients is not None:
             self.patients = {}
             for patient_name in patients:
@@ -50,10 +51,16 @@ class Patients:
         if subject_info_file_path is not None:
             self.patients = {}
             with open(subject_info_file_path) as subject_info:
-                subject_info.readline()  # Get rid of header line
+                titles = subject_info.readline().strip().split(",")  # Get rid of header line
                 for line in subject_info:
                     if bool(re.search(r'\d', line)):
-                        p = Patient(line=line.strip())
+                        p = Patient(patient_name=line.split(",")[0], titles=titles, line=line)
+                        for key, value in p.data.items():
+                            if key in self.possibilities:
+                                if value not in self.possibilities[key]:
+                                    self.possibilities[key].append(value)
+                            else:
+                                self.possibilities[key] = [value]
                         self.patients[p.patient_name] = p
 
     def __getitem__(self, item):

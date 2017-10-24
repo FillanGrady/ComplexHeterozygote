@@ -115,14 +115,10 @@ class Data:
                     self.parse_file_object(f)
         for coding_gene, ch_count in self.ch_counts.items():
             for patient in ch_count.header.patient_columns:
-                ch_count["COUNT"] += 1 if ch_count[patient].value is not False else 0
-                patient_super_population = self.patients.patients[patient].super_population + "_COUNT"
-                if patient_super_population not in ch_count:
-                    if self.patients.patients[patient].super_population != "":
-                        print("%s not found" % patient_super_population)
-                else:
-                    if ch_count[patient].value is not False:
-                        ch_count[patient_super_population] += 1
+                if ch_count[patient].value is not False:
+                    ch_count["COUNT"] += 1
+                    for key, value in self.patients.patients[patient].data.items():
+                        ch_count[key + "=" + value] += 1
         self.save_count_file(count_file_path)
 
     def parse_file_object(self, file_object):

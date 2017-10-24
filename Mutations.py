@@ -13,7 +13,6 @@ class Header:
                 input_titles: read in from vcf file
                 patient_columns: columns that match patient ids
                 output_titles: to be output to a vcf file
-                count_columns: to be output to the count file
                 """
                 header_line = args[0]
                 self.input_titles = header_line.split("\t")
@@ -24,10 +23,7 @@ class Header:
                     + self.input_titles[4:7] + info_columns + \
                     [x for x in self.input_titles[7:] if x not in self.patient_columns] + \
                     ["AC", "AMax", "AF"]
-                self.count_columns = ["CODING_GENE", "COUNT"] + \
-                                     [x[0] + '_COUNT' for x in SuperPopulations.__members__.items()] + \
-                                     self.patient_columns
-                self.var_columns = [x for x in self.output_titles if x not in self.count_columns]
+                #self.var_columns = [x for x in self.output_titles if x not in self.count_columns]
             elif isinstance(args[0], Header):
                 """
                 This option creates a copy of an instance of the Header class
@@ -36,8 +32,7 @@ class Header:
                 self.input_titles = header.input_titles
                 self.output_titles = header.output_titles
                 self.patient_columns = header.patient_columns
-                self.count_columns = header.count_columns
-                self.var_columns = header.var_columns
+                #self.var_columns = header.var_columns
             else:
                 raise ValueError("Unrecognized arguments")
         else:
@@ -397,11 +392,13 @@ class CodingGeneMutation(Mutation):
     """
     def __init__(self, ch_count_header, coding_gene, valid_genotypes):
         self.header = ch_count_header
-        self.valid_genotypes = valid_genotypes
-        self.data = {'CODING_GENE': coding_gene, 'COUNT': 0}
         self.abbreviated_titles = {}
-        for name, value in SuperPopulations.__members__.items():
-            self.data[name + "_COUNT"] = 0
+        self.valid_genotypes = valid_genotypes
+
+        self.data = {}
+        for key in self.header.count_columns:
+            self.data[key] = 0
+        self.data['CODING_GENE'] = coding_gene
         for patient in self.header.patient_columns:
             self.data[patient] = PatientGenotype(self.valid_genotypes)
 
@@ -420,17 +417,20 @@ class CodingGeneMutationHeader(Header):
     Creates a header for the Counts
     """
     def __init__(self, header, my_patients):
-        self.output_titles = header.count_columns
+        self.count_columns = ["CODING_GENE", "COUNT"]
+        for key, values in my_patients.possibilities.items():
+            for value in values:
+                self.count_columns += [key + "=" + value]
+
+        self.output_titles = self.count_columns + header.patient_columns
         self.patient_columns = header.patient_columns
         self.my_patients = my_patients
 
     def __repr__(self):
         patient_header = '\t'.join(self.output_titles)
-        gender_header = '\t'.join([self.my_patients[patient].gender if patient in self.my_patients else ""
-                                   for patient in self.output_titles])
-        population_header = '\t'.join([self.my_patients[patient].population if patient in self.my_patients else ""
-                                       for patient in self.output_titles])
-        super_pop_header = '\t'.join([self.my_patients[patient].super_population if patient in self.my_patients else ""
-                                      for patient in self.output_titles])
-        return patient_header + os.linesep + gender_header + os.linesep + population_header + os.linesep + \
-            super_pop_header + os.linesep
+        subject_info_headers = []
+        for key in self.my_patients.possibilities:
+            s = '\t' * len(self.count_columns)
+            s += '\t'.join([self.my_patients.patients[patient].data[key] for patient in self.patient_columns])
+            subject_info_headers.append(s)
+        return patient_header + os.linesep.join(subject_info_headers)
